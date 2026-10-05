@@ -22,14 +22,22 @@ scenarios:
 - name: Missing bridge retains denied defaults
   code: |-
     mock('callInWindow', () => undefined);
-    runCode({});
+    mock('setDefaultConsentState', (state) => {
+      assertThat(state.analytics_storage).isEqualTo('denied');
+      assertThat(state.region).isEqualTo(undefined);
+    });
+    runCode({regionDefaults: [{region: 'US', analytics_storage: 'granted'}]});
     assertApi('setDefaultConsentState').wasCalled();
     assertApi('updateConsentState').wasNotCalled();
     assertApi('gtmOnFailure').wasCalled();
 - name: Direct integration does not register a native listener
   code: |-
     mock('callInWindow', () => ({integration: 'gtag', developerId: ''}));
-    runCode({});
+    mock('setDefaultConsentState', (state) => {
+      assertThat(state.analytics_storage).isEqualTo('denied');
+      assertThat(state.region).isEqualTo(undefined);
+    });
+    runCode({regionDefaults: [{region: 'US', analytics_storage: 'granted'}]});
     assertApi('updateConsentState').wasNotCalled();
     assertApi('gtmOnFailure').wasCalled();
 - name: Restores a saved choice and observes withdrawal
@@ -52,8 +60,16 @@ scenarios:
     assertApi('gtagSet').wasCalledWith('developer_id.dTest01', true);
 - name: Subscription failure cannot grant consent
   code: |-
-    mock('callInWindow', (path) => path === 'AcookiesConsent.getConfig' ? {integration: 'gtm', developerId: ''} : false);
-    runCode({});
+    mock('callInWindow', (path, callback) => {
+      if (path === 'AcookiesConsent.getConfig') return {integration: 'gtm', developerId: ''};
+      callback({analytics_storage: 'granted'});
+      return false;
+    });
+    mock('setDefaultConsentState', (state) => {
+      assertThat(state.analytics_storage).isEqualTo('denied');
+      assertThat(state.region).isEqualTo(undefined);
+    });
+    runCode({regionDefaults: [{region: 'US', analytics_storage: 'granted'}]});
     assertApi('updateConsentState').wasNotCalled();
     assertApi('gtmOnFailure').wasCalled();
 - name: Supports configurable regional defaults with a denied fallback

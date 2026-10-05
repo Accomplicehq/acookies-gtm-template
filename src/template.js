@@ -18,26 +18,20 @@ if (templateStorage.getItem('subscribed')) {
     wait_for_update: 500
   });
 
-  // More specific regional defaults take precedence over the denied fallback.
-  (data.regionDefaults || []).forEach((row) => {
-    const regions = (row.region || '').split(',').map((region) => region.trim().toUpperCase()).filter((region) => region !== '');
-    if (regions.length === 0) return;
-    const regional = { region: regions, security_storage: 'granted', wait_for_update: 500 };
-    ['analytics_storage', 'ad_storage', 'ad_user_data', 'ad_personalization', 'functionality_storage', 'personalization_storage'].forEach((type) => {
-      regional[type] = row[type] === 'granted' ? 'granted' : 'denied';
-    });
-    setDefaultConsentState(regional);
-  });
-
   const config = callInWindow('AcookiesConsent.getConfig');
   if (!config || config.integration !== 'gtm') {
     data.gtmOnFailure();
   } else {
-    if (config.developerId) {
-      gtagSet('developer_id.' + config.developerId, true);
-    }
+    let connected = false;
+    let initialState;
     const onConsent = (state) => {
       if (!state) return;
+      // Hold synchronous saved-choice replay until the subscription succeeds
+      // and all defaults have been established.
+      if (!connected) {
+        initialState = state;
+        return;
+      }
       updateConsentState({
         analytics_storage: state.analytics_storage === 'granted' ? 'granted' : 'denied',
         ad_storage: state.ad_storage === 'granted' ? 'granted' : 'denied',
@@ -49,6 +43,21 @@ if (templateStorage.getItem('subscribed')) {
       });
     };
     if (callInWindow('AcookiesConsent.subscribe', onConsent) === true) {
+      // Apply regional grants only when the bridge has actually connected.
+      (data.regionDefaults || []).forEach((row) => {
+        const regions = (row.region || '').split(',').map((region) => region.trim().toUpperCase()).filter((region) => region !== '');
+        if (regions.length === 0) return;
+        const regional = { region: regions, security_storage: 'granted', wait_for_update: 500 };
+        ['analytics_storage', 'ad_storage', 'ad_user_data', 'ad_personalization', 'functionality_storage', 'personalization_storage'].forEach((type) => {
+          regional[type] = row[type] === 'granted' ? 'granted' : 'denied';
+        });
+        setDefaultConsentState(regional);
+      });
+      if (config.developerId) {
+        gtagSet('developer_id.' + config.developerId, true);
+      }
+      connected = true;
+      if (initialState) onConsent(initialState);
       templateStorage.setItem('subscribed', true);
       data.gtmOnSuccess();
     } else {

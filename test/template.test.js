@@ -7,7 +7,7 @@ const exported = await readFile(new URL('../template.tpl', import.meta.url), 'ut
 const sections = exported.split(/___([A-Z_]+)___/);
 const section = (name) => sections[sections.indexOf(name) + 1].trim();
 const source = section('SANDBOXED_JS_FOR_WEB_TEMPLATE');
-const plain = (value) => JSON.parse(JSON.stringify(value));
+const plain = (value) => value === undefined ? undefined : JSON.parse(JSON.stringify(value));
 
 function harness() {
   const calls = new Map();
@@ -76,6 +76,24 @@ test('failed initialization can retry once the bridge is available', () => {
   h.mock('callInWindow', (path) => path === 'AcookiesConsent.getConfig' ? { integration: 'gtm' } : true);
   h.runCode({});
   assert.equal(h.calls.get('gtmOnFailure').length, 1);
+  assert.equal(h.calls.get('gtmOnSuccess').length, 1);
+});
+
+test('saved consent updates follow regional defaults after connection succeeds', () => {
+  const h = harness();
+  const order = [];
+  h.mock('setDefaultConsentState', (state) => order.push(state.region ? 'regional' : 'global'));
+  h.mock('updateConsentState', (state) => {
+    order.push('update');
+    assert.equal(state.analytics_storage, 'denied');
+  });
+  h.mock('callInWindow', (path, callback) => {
+    if (path === 'AcookiesConsent.getConfig') return { integration: 'gtm' };
+    callback({ analytics_storage: 'denied' });
+    return true;
+  });
+  h.runCode({ regionDefaults: [{ region: 'US', analytics_storage: 'granted' }] });
+  assert.deepEqual(order, ['global', 'regional', 'update']);
   assert.equal(h.calls.get('gtmOnSuccess').length, 1);
 });
 

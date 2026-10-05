@@ -27,6 +27,8 @@ Defaults deny optional consent worldwide and grant `security_storage`. Optional
 regional rows use comma-separated ISO 3166-2 codes and GTM's more-specific-region
 precedence. The WordPress banner still appears worldwide. User choices override
 defaults. Regional grants must match the site's consent policy.
+Regional grants are applied only after the WordPress bridge successfully
+subscribes; saved choices then override the complete set of defaults.
 
 Google's developer ID comes from the installed vendor plugin and is omitted until
 Google issues the ID. There is no customer-supplied ID field. The template needs
