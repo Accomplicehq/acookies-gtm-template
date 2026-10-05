@@ -1,5 +1,7 @@
 homepage: "https://acookies.com/"
 documentation: "https://acookies.com/wordpress-google-consent-setup"
 versions:
+  - sha: cd78e3dc996271d3965c6d31a3e6baa1d8b3ffda
+    changeNotes: Require a successful WordPress bridge connection before regional grants; seven Google sandbox tests passed. Reviews pending.
   - sha: 49c4fd82a6c3117156aeb2a7eff428d36400c3c0
     changeNotes: Initial WordPress adapter for manual import; seven Google sandbox tests passed. Gallery and CMP reviews pending.
