@@ -1,0 +1,63 @@
+setup: |-
+  const templateStorage = require('templateStorage');
+  templateStorage.clear();
+scenarios:
+- name: Establishes denied defaults before subscribing
+  code: |-
+    let defaultsSet = false;
+    mock('setDefaultConsentState', (state) => {
+      defaultsSet = true;
+      assertThat(state.ad_user_data).isEqualTo('denied');
+      assertThat(state.ad_personalization).isEqualTo('denied');
+      assertThat(state.analytics_storage).isEqualTo('denied');
+    });
+    mock('callInWindow', (path) => {
+      assertThat(defaultsSet).isEqualTo(true);
+      if (path === 'AcookiesConsent.getConfig') return {integration: 'gtm', developerId: ''};
+      return true;
+    });
+    runCode({});
+    assertApi('gtmOnSuccess').wasCalled();
+    assertApi('gtagSet').wasNotCalled();
+- name: Missing bridge retains denied defaults
+  code: |-
+    mock('callInWindow', () => undefined);
+    runCode({});
+    assertApi('setDefaultConsentState').wasCalled();
+    assertApi('updateConsentState').wasNotCalled();
+    assertApi('gtmOnFailure').wasCalled();
+- name: Direct integration does not register a native listener
+  code: |-
+    mock('callInWindow', () => ({integration: 'gtag', developerId: ''}));
+    runCode({});
+    assertApi('updateConsentState').wasNotCalled();
+    assertApi('gtmOnFailure').wasCalled();
+- name: Restores a saved choice and observes withdrawal
+  code: |-
+    let listener;
+    mock('callInWindow', (path, callback) => {
+      if (path === 'AcookiesConsent.getConfig') return {integration: 'gtm', developerId: ''};
+      listener = callback;
+      callback({analytics_storage: 'granted', ad_storage: 'denied'});
+      return true;
+    });
+    runCode({});
+    assertApi('updateConsentState').wasCalledWith({analytics_storage: 'granted', ad_storage: 'denied', ad_user_data: 'denied', ad_personalization: 'denied', functionality_storage: 'denied', personalization_storage: 'denied', security_storage: 'granted'});
+    listener({analytics_storage: 'denied'});
+    assertApi('updateConsentState').wasCalledWith({analytics_storage: 'denied', ad_storage: 'denied', ad_user_data: 'denied', ad_personalization: 'denied', functionality_storage: 'denied', personalization_storage: 'denied', security_storage: 'granted'});
+- name: Uses the vendor ID issued to the plugin
+  code: |-
+    mock('callInWindow', (path) => path === 'AcookiesConsent.getConfig' ? {integration: 'gtm', developerId: 'dTest01'} : true);
+    runCode({});
+    assertApi('gtagSet').wasCalledWith('developer_id.dTest01', true);
+- name: Subscription failure cannot grant consent
+  code: |-
+    mock('callInWindow', (path) => path === 'AcookiesConsent.getConfig' ? {integration: 'gtm', developerId: ''} : false);
+    runCode({});
+    assertApi('updateConsentState').wasNotCalled();
+    assertApi('gtmOnFailure').wasCalled();
+- name: Supports configurable regional defaults with a denied fallback
+  code: |-
+    mock('callInWindow', (path) => path === 'AcookiesConsent.getConfig' ? {integration: 'gtm', developerId: ''} : true);
+    runCode({regionDefaults: [{region: 'us, us-ca', analytics_storage: 'granted'}, {region: ''}]});
+    assertApi('setDefaultConsentState').wasCalledWith({region: ['US', 'US-CA'], security_storage: 'granted', wait_for_update: 500, analytics_storage: 'granted', ad_storage: 'denied', ad_user_data: 'denied', ad_personalization: 'denied', functionality_storage: 'denied', personalization_storage: 'denied'});
