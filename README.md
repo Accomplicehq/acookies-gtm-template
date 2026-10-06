@@ -59,9 +59,9 @@ the independently authored template and its tooling are Apache 2.0.
 
 ## Support
 
-For missing consent signals, start with ACookies/Accomplice support at
-https://accomplice.se/ before contacting Google. Include plugin/template versions,
+For missing consent signals, email support@acookies.com before contacting Google.
+Include plugin/template versions,
 the affected public URL, integration mode and a shareable GTM Preview link.
 Use repository Issues for template bugs; never post credentials or private
-consent records. Support availability and response commitments require company
-confirmation before the CMP partner application.
+consent records. Staffed technical support is available to all ACookies customers,
+including free users, with an initial technical response within four business days.
