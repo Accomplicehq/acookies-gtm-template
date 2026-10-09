@@ -5,8 +5,8 @@ This repository is a development release. It is not a Google CMP partner approva
 or a Community Template Gallery listing.
 
 All seven embedded scenarios passed in Google's template editor on 2026-10-05.
-The WordPress 0.3.0 release and public setup guide deployment are being prepared
-separately; this is a manual-import release candidate.
+The Google-issued vendor ID is embedded in the released WordPress 1.1.1 patch;
+this template remains a manual-import release candidate awaiting Gallery review.
 
 ## Install
 
@@ -30,9 +30,10 @@ defaults. Regional grants must match the site's consent policy.
 Regional grants are applied only after the WordPress bridge successfully
 subscribes; saved choices then override the complete set of defaults.
 
-Google's developer ID comes from the installed vendor plugin and is omitted until
-Google issues the ID. There is no customer-supplied ID field. The template needs
-no network, script-injection or cookie permissions.
+Google's developer ID comes from the installed vendor plugin. WordPress 1.1.1+
+provides ACookies' Google-issued ID, `dNjUxMW`; older versions omit it. There is
+no customer-supplied ID field. The template needs no network, script-injection
+or cookie permissions.
 
 Full setup and troubleshooting: https://acookies.com/wordpress-google-consent-setup
 
@@ -45,7 +46,7 @@ into GTM and run its Tests tab too; Node's sandbox is not Google's runtime.
 
 All Gallery files must be at repository root on `main`. Before Gallery submission:
 
-- Obtain and embed the Google-issued developer ID in the WordPress plugin.
+- Publish WordPress 1.1.1+ with the embedded Google-issued developer ID, `dNjUxMW`.
 - Verify the template in an actual GTM workspace with real Google tags.
 - An authorized representative reviews and accepts the Gallery terms in the editor.
 - Set `metadata.yaml`'s version SHA to the reviewed template commit.
@@ -65,3 +66,4 @@ the affected public URL, integration mode and a shareable GTM Preview link.
 Use repository Issues for template bugs; never post credentials or private
 consent records. Staffed technical support is available to all ACookies customers,
 including free users, with an initial technical response within four business days.
+Support hours: Monday–Friday, 09:00–17:00 Europe/Stockholm.
