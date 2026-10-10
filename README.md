@@ -4,7 +4,8 @@ Connects the **ACookies WordPress plugin 0.3.0+** to GTM's native consent APIs.
 This repository is a development release. It is not a Google CMP partner approval
 or a Community Template Gallery listing.
 
-All seven embedded scenarios passed in Google's template editor on 2026-10-05.
+All seven embedded scenarios passed in Google's template editor on 2026-10-05
+and again in a new isolated review container on 2026-10-10.
 The Google-issued vendor ID is embedded in the released WordPress 1.1.1 patch;
 this template remains a manual-import release candidate awaiting Gallery review.
 
