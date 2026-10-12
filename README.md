@@ -1,13 +1,19 @@
 # ACookies Consent Mode for Google Tag Manager
 
-Connects the **ACookies WordPress plugin 0.3.0+** to GTM's native consent APIs.
+Connects the **ACookies WordPress plugin 1.1.1+** to GTM's native consent APIs.
 This repository is a development release. It is not a Google CMP partner approval
 or a Community Template Gallery listing.
 
 All seven embedded scenarios passed in Google's template editor on 2026-10-05
-and again in a new isolated review container on 2026-10-10.
+and again in a new isolated review container on 2026-10-10 and 2026-10-13.
 The Google-issued vendor ID is embedded in the released WordPress 1.1.1 patch;
 this template remains a manual-import release candidate awaiting Gallery review.
+
+Pär Thunberg approved the Gallery Developer Terms of Service on behalf of
+Accomplice AB on 2026-10-13. The Gallery candidate retains the tested consent
+code and permissions, adds the approved terms and includes a 96×96 brand icon.
+Direct/native basic/advanced live evidence and the customer example are available
+at https://google-review.acookies.com/.
 
 ## Install
 
@@ -40,8 +46,9 @@ Full setup and troubleshooting: https://acookies.com/wordpress-google-consent-se
 
 ## Development and releases
 
-Requires Node.js 22+. Run `npm run build` after changing `src/template.js`, the
-permission definitions or embedded tests; then run `npm test`. Tests execute the
+Requires Node.js 22+. Run `npm run build` after changing `src/template.js`,
+`src/info.json`, `src/terms.txt`, the permission definitions or embedded tests;
+then run `npm test`. Tests execute the
 actual exported sandbox code and all embedded GTM scenarios. Import the export
 into GTM and run its Tests tab too; Node's sandbox is not Google's runtime.
 

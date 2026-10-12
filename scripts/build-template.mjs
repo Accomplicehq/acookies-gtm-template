@@ -16,14 +16,8 @@ const permissions = [
   permission('write_data_layer', 'keyPatterns', [string('developer_id.*')]),
   permission('access_template_storage')
 ];
-const info = {
-  type: 'TAG', id: 'cvt_temp_public_id', version: 1,
-  displayName: 'ACookies Consent Mode',
-  description: 'Connects the ACookies WordPress banner to native Google Tag Manager consent APIs. Requires ACookies 0.3.0 or later with native GTM integration selected.',
-  categories: ['TAG_MANAGEMENT', 'UTILITY'],
-  containerContexts: ['WEB'], securityGroups: [],
-  brand: { id: 'github.com_Accomplicehq', displayName: 'Accomplice AB' }
-};
+const info = JSON.parse(await readFile(new URL('src/info.json', root), 'utf8'));
+const terms = await readFile(new URL('src/terms.txt', root), 'utf8');
 const code = await readFile(new URL('src/template.js', root), 'utf8');
 const parameters = [{
   type: 'SIMPLE_TABLE', name: 'regionDefaults', displayName: 'Optional regional consent defaults',
@@ -38,7 +32,7 @@ const parameters = [{
 }];
 const scenarios = await readFile(new URL('test/scenarios.yaml', root), 'utf8');
 const sections = [
-  ['TERMS_OF_SERVICE', 'The Gallery terms must be reviewed and accepted by an authorized company representative before submission.'],
+  ['TERMS_OF_SERVICE', terms.trim()],
   ['INFO', JSON.stringify(info, null, 2)],
   ['TEMPLATE_PARAMETERS', JSON.stringify(parameters, null, 2)],
   ['SANDBOXED_JS_FOR_WEB_TEMPLATE', code.trim()],
@@ -46,5 +40,6 @@ const sections = [
   ['TESTS', scenarios.trim()],
   ['NOTES', 'WordPress integration only. Developer ID comes from the installed vendor plugin.']
 ];
-await writeFile(new URL('template.tpl', root), sections.map(([name, body]) => `___${name}___\n\n${body}`).join('\n\n\n') + '\n');
+// Preserve the Google editor export's UTF-8 BOM and final section spacing.
+await writeFile(new URL('template.tpl', root), '\uFEFF' + sections.map(([name, body]) => `___${name}___\n\n${body}`).join('\n\n\n') + '\n\n\n');
 console.log('Generated template.tpl from source, permissions and embedded tests.');
