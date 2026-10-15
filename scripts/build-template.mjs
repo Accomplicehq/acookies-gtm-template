@@ -13,7 +13,7 @@ const consentTypes = ['analytics_storage', 'ad_storage', 'ad_user_data', 'ad_per
 const permissions = [
   permission('access_consent', 'consentTypes', consentTypes.map((type) => map({ consentType: string(type), read: boolean(false), write: boolean(true) }))),
   permission('access_globals', 'keys', ['AcookiesConsent.getConfig', 'AcookiesConsent.subscribe'].map((key) => map({ key: string(key), read: boolean(false), write: boolean(false), execute: boolean(true) }))),
-  permission('write_data_layer', 'keyPatterns', [string('developer_id.*')]),
+  permission('write_data_layer', 'keyPatterns', [string('developer_id.dNjUxMW')]),
   permission('access_template_storage')
 ];
 const info = JSON.parse(await readFile(new URL('src/info.json', root), 'utf8'));
@@ -38,7 +38,7 @@ const sections = [
   ['SANDBOXED_JS_FOR_WEB_TEMPLATE', code.trim()],
   ['WEB_PERMISSIONS', JSON.stringify(permissions, null, 2)],
   ['TESTS', scenarios.trim()],
-  ['NOTES', 'WordPress integration only. Developer ID comes from the installed vendor plugin.']
+  ['NOTES', 'WordPress integration only. Embeds ACookies developer ID dNjUxMW; the WordPress plugin loads the banner and bridge.']
 ];
 // Preserve the Google editor export's UTF-8 BOM and final section spacing.
 await writeFile(new URL('template.tpl', root), '\uFEFF' + sections.map(([name, body]) => `___${name}___\n\n${body}`).join('\n\n\n') + '\n\n\n');

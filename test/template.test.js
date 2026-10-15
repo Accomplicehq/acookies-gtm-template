@@ -68,6 +68,7 @@ test('duplicate firing neither resets state nor registers another listener', () 
   assert.equal(h.calls.get('setDefaultConsentState').length, 1);
   assert.equal(h.calls.get('callInWindow').filter(([path]) => path === 'AcookiesConsent.subscribe').length, 1);
   assert.equal(h.calls.get('gtmOnSuccess').length, 2);
+  assert.deepEqual(h.calls.get('gtagSet'), [['developer_id.dNjUxMW', true]]);
 });
 
 test('failed initialization can retry once the bridge is available', () => {
@@ -77,6 +78,7 @@ test('failed initialization can retry once the bridge is available', () => {
   h.runCode({});
   assert.equal(h.calls.get('gtmOnFailure').length, 1);
   assert.equal(h.calls.get('gtmOnSuccess').length, 1);
+  assert.deepEqual(h.calls.get('gtagSet'), [['developer_id.dNjUxMW', true], ['developer_id.dNjUxMW', true]]);
 });
 
 test('saved consent updates follow regional defaults after connection succeeds', () => {
@@ -109,8 +111,15 @@ test('export grants native storage and developer identification using GTM permis
   const permissions = JSON.parse(section('WEB_PERMISSIONS'));
   const writes = permissions.find((entry) => entry.instance.key.publicId === 'write_data_layer');
   assert.equal(writes.instance.param[0].key, 'keyPatterns');
-  assert.deepEqual(writes.instance.param[0].value.listItem, [{ type: 1, string: 'developer_id.*' }]);
+  assert.deepEqual(writes.instance.param[0].value.listItem, [{ type: 1, string: 'developer_id.dNjUxMW' }]);
   const storage = permissions.find((entry) => entry.instance.key.publicId === 'access_template_storage');
   assert.equal(storage.isRequired, true);
   assert.deepEqual(storage.instance.param, []);
+});
+
+test('only the issued developer ID is registered despite foreign bridge configuration', () => {
+  const h = harness();
+  h.mock('callInWindow', (path) => path === 'AcookiesConsent.getConfig' ? { integration: 'gtm', developerId: 'dForeign' } : true);
+  h.runCode({});
+  assert.deepEqual(h.calls.get('gtagSet'), [['developer_id.dNjUxMW', true]]);
 });

@@ -173,6 +173,7 @@ if (templateStorage.getItem('subscribed')) {
     security_storage: 'granted',
     wait_for_update: 500
   });
+  gtagSet('developer_id.dNjUxMW', true);
 
   const config = callInWindow('AcookiesConsent.getConfig');
   if (!config || config.integration !== 'gtm') {
@@ -209,9 +210,6 @@ if (templateStorage.getItem('subscribed')) {
         });
         setDefaultConsentState(regional);
       });
-      if (config.developerId) {
-        gtagSet('developer_id.' + config.developerId, true);
-      }
       connected = true;
       if (initialState) onConsent(initialState);
       templateStorage.setItem('subscribed', true);
@@ -573,7 +571,7 @@ ___WEB_PERMISSIONS___
             "listItem": [
               {
                 "type": 1,
-                "string": "developer_id.*"
+                "string": "developer_id.dNjUxMW"
               }
             ]
           }
@@ -604,20 +602,28 @@ scenarios:
 - name: Establishes denied defaults before subscribing
   code: |-
     let defaultsSet = false;
+    let developerIdSet = false;
     mock('setDefaultConsentState', (state) => {
       defaultsSet = true;
       assertThat(state.ad_user_data).isEqualTo('denied');
       assertThat(state.ad_personalization).isEqualTo('denied');
       assertThat(state.analytics_storage).isEqualTo('denied');
     });
+    mock('gtagSet', (key, value) => {
+      assertThat(defaultsSet).isEqualTo(true);
+      assertThat(key).isEqualTo('developer_id.dNjUxMW');
+      assertThat(value).isEqualTo(true);
+      developerIdSet = true;
+    });
     mock('callInWindow', (path) => {
       assertThat(defaultsSet).isEqualTo(true);
+      assertThat(developerIdSet).isEqualTo(true);
       if (path === 'AcookiesConsent.getConfig') return {integration: 'gtm', developerId: ''};
       return true;
     });
     runCode({});
     assertApi('gtmOnSuccess').wasCalled();
-    assertApi('gtagSet').wasNotCalled();
+    assertApi('gtagSet').wasCalledWith('developer_id.dNjUxMW', true);
 - name: Missing bridge retains denied defaults
   code: |-
     mock('callInWindow', () => undefined);
@@ -629,6 +635,7 @@ scenarios:
     assertApi('setDefaultConsentState').wasCalled();
     assertApi('updateConsentState').wasNotCalled();
     assertApi('gtmOnFailure').wasCalled();
+    assertApi('gtagSet').wasCalledWith('developer_id.dNjUxMW', true);
 - name: Direct integration does not register a native listener
   code: |-
     mock('callInWindow', () => ({integration: 'gtag', developerId: ''}));
@@ -639,6 +646,7 @@ scenarios:
     runCode({regionDefaults: [{region: 'US', analytics_storage: 'granted'}]});
     assertApi('updateConsentState').wasNotCalled();
     assertApi('gtmOnFailure').wasCalled();
+    assertApi('gtagSet').wasCalledWith('developer_id.dNjUxMW', true);
 - name: Restores a saved choice and observes withdrawal
   code: |-
     let listener;
@@ -652,11 +660,16 @@ scenarios:
     assertApi('updateConsentState').wasCalledWith({analytics_storage: 'granted', ad_storage: 'denied', ad_user_data: 'denied', ad_personalization: 'denied', functionality_storage: 'denied', personalization_storage: 'denied', security_storage: 'granted'});
     listener({analytics_storage: 'denied'});
     assertApi('updateConsentState').wasCalledWith({analytics_storage: 'denied', ad_storage: 'denied', ad_user_data: 'denied', ad_personalization: 'denied', functionality_storage: 'denied', personalization_storage: 'denied', security_storage: 'granted'});
-- name: Uses the vendor ID issued to the plugin
+- name: Embeds the issued ID without a bridge developer ID
+  code: |-
+    mock('callInWindow', (path) => path === 'AcookiesConsent.getConfig' ? {integration: 'gtm'} : true);
+    runCode({});
+    assertApi('gtagSet').wasCalledWith('developer_id.dNjUxMW', true);
+- name: Ignores a foreign bridge developer ID
   code: |-
     mock('callInWindow', (path) => path === 'AcookiesConsent.getConfig' ? {integration: 'gtm', developerId: 'dTest01'} : true);
     runCode({});
-    assertApi('gtagSet').wasCalledWith('developer_id.dTest01', true);
+    assertApi('gtagSet').wasCalledWith('developer_id.dNjUxMW', true);
 - name: Subscription failure cannot grant consent
   code: |-
     mock('callInWindow', (path, callback) => {
@@ -671,6 +684,7 @@ scenarios:
     runCode({regionDefaults: [{region: 'US', analytics_storage: 'granted'}]});
     assertApi('updateConsentState').wasNotCalled();
     assertApi('gtmOnFailure').wasCalled();
+    assertApi('gtagSet').wasCalledWith('developer_id.dNjUxMW', true);
 - name: Supports configurable regional defaults with a denied fallback
   code: |-
     mock('callInWindow', (path) => path === 'AcookiesConsent.getConfig' ? {integration: 'gtm', developerId: ''} : true);
@@ -680,6 +694,6 @@ scenarios:
 
 ___NOTES___
 
-WordPress integration only. Developer ID comes from the installed vendor plugin.
+WordPress integration only. Embeds ACookies developer ID dNjUxMW; the WordPress plugin loads the banner and bridge.
 
 

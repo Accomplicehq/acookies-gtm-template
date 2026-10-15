@@ -4,10 +4,15 @@ Connects the **ACookies WordPress plugin 1.1.1+** to GTM's native consent APIs.
 This repository is a development release. It is not a Google CMP partner approval
 or a Community Template Gallery listing.
 
-All seven embedded scenarios passed in Google's template editor on 2026-10-05
-and again in a new isolated review container on 2026-10-10 and 2026-10-13.
-The Google-issued vendor ID is embedded in the released WordPress 1.1.1 patch;
-this template remains a manual-import release candidate awaiting Gallery review.
+The previous seven embedded scenarios passed in Google's template editor on
+2026-10-05, 2026-10-10 and 2026-10-13. The repository was submitted to the Gallery
+on 2026-10-13 and remains under review. Google's CMP feedback on 2026-10-15
+requested embedding the issued developer ID directly in the template. The
+revised candidate does so and adds regression coverage; its verification is
+recorded separately from the earlier candidate.
+All eight revised scenarios passed in Google's template editor on 2026-10-15;
+all 16 local tests passed. Google Preview confirmed denied defaults and the
+issued developer ID before the measurement tag on the isolated review site.
 
 Pär Thunberg approved the Gallery Developer Terms of Service on behalf of
 Accomplice AB on 2026-10-13. The Gallery candidate retains the tested consent
@@ -37,10 +42,13 @@ defaults. Regional grants must match the site's consent policy.
 Regional grants are applied only after the WordPress bridge successfully
 subscribes; saved choices then override the complete set of defaults.
 
-Google's developer ID comes from the installed vendor plugin. WordPress 1.1.1+
-provides ACookies' Google-issued ID, `dNjUxMW`; older versions omit it. There is
-no customer-supplied ID field. The template needs no network, script-injection
-or cookie permissions.
+The template embeds ACookies' Google-issued ID, `dNjUxMW`, and registers it
+immediately after denied defaults, before reading the WordPress bridge. It
+ignores any developer ID returned by the bridge and has no customer-supplied ID
+field. Registration does not grant consent; missing or misconfigured WordPress
+integration retains denied optional defaults and reports initialization failure.
+Its data-layer write permission is limited to `developer_id.dNjUxMW`. The
+template needs no network, script-injection or cookie permissions.
 
 Full setup and troubleshooting: https://acookies.com/wordpress-google-consent-setup
 

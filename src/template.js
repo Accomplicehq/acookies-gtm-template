@@ -17,6 +17,7 @@ if (templateStorage.getItem('subscribed')) {
     security_storage: 'granted',
     wait_for_update: 500
   });
+  gtagSet('developer_id.dNjUxMW', true);
 
   const config = callInWindow('AcookiesConsent.getConfig');
   if (!config || config.integration !== 'gtm') {
@@ -53,9 +54,6 @@ if (templateStorage.getItem('subscribed')) {
         });
         setDefaultConsentState(regional);
       });
-      if (config.developerId) {
-        gtagSet('developer_id.' + config.developerId, true);
-      }
       connected = true;
       if (initialState) onConsent(initialState);
       templateStorage.setItem('subscribed', true);
