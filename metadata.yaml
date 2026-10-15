@@ -1,6 +1,8 @@
 homepage: "https://acookies.com/"
 documentation: "https://acookies.com/wordpress-google-consent-setup"
 versions:
+  - sha: 4c06cc3d2bc0dab4d717d76d5fcedd53fe741c7e
+    changeNotes: Embed the issued developer ID dNjUxMW directly before bridge access and restrict writes to that ID; eight Google sandbox scenarios passed. WordPress integration only; reviews pending.
   - sha: 4876c527eb5a65d38f102c04c825f272c273c3ac
     changeNotes: Gallery candidate with approved terms, a 96px globe icon and WordPress 1.1.1 setup details; consent behavior unchanged. Reviews pending.
   - sha: cd78e3dc996271d3965c6d31a3e6baa1d8b3ffda
