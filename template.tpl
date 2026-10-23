@@ -13,7 +13,7 @@ ___INFO___
   "id": "cvt_temp_public_id",
   "version": 1,
   "displayName": "ACookies Consent Mode",
-  "description": "Connects the ACookies WordPress banner to Google consent settings. Requires ACookies 1.1.1+ in native GTM mode. Guide: https://acookies.com/wordpress-google-consent-setup; support@acookies.com.",
+  "description": "Native Google consent APIs for ACookies. WordPress by default; optional standalone banner through GTM. Setup: https://github.com/Accomplicehq/acookies-gtm-template; support@acookies.com.",
   "categories": [
     "TAG_MANAGEMENT",
     "UTILITY"
@@ -34,10 +34,136 @@ ___TEMPLATE_PARAMETERS___
 
 [
   {
+    "type": "SELECT",
+    "name": "installationMode",
+    "displayName": "Banner installation",
+    "defaultValue": "wordpress",
+    "selectItems": [
+      {
+        "value": "wordpress",
+        "displayValue": "Use the ACookies WordPress plugin (default)"
+      },
+      {
+        "value": "standalone",
+        "displayValue": "Load the standalone ACookies banner through GTM"
+      }
+    ],
+    "help": "WordPress users should keep the default. Standalone mode loads a banner only when no WordPress consent bridge is present. Use one ACookies tag on Consent Initialization – All Pages."
+  },
+  {
+    "type": "TEXT",
+    "name": "siteKey",
+    "displayName": "Site key",
+    "defaultValue": "",
+    "help": "A unique identifier for this website. Use letters, numbers, hyphens or underscores.",
+    "enablingConditions": [
+      {
+        "paramName": "installationMode",
+        "type": "EQUALS",
+        "paramValue": "standalone"
+      }
+    ],
+    "valueValidators": [
+      {
+        "type": "NON_EMPTY"
+      }
+    ]
+  },
+  {
+    "type": "TEXT",
+    "name": "privacyUrl",
+    "displayName": "Cookie policy URL",
+    "defaultValue": "",
+    "help": "The HTTPS URL of your published cookie policy.",
+    "enablingConditions": [
+      {
+        "paramName": "installationMode",
+        "type": "EQUALS",
+        "paramValue": "standalone"
+      }
+    ],
+    "valueValidators": [
+      {
+        "type": "NON_EMPTY"
+      }
+    ]
+  },
+  {
+    "type": "TEXT",
+    "name": "configUrl",
+    "displayName": "Configuration URL (optional)",
+    "defaultValue": "",
+    "help": "An HTTPS JSON URL with CORS enabled for your site. Optional banner wording, styles, translations and cookie disclosures.",
+    "enablingConditions": [
+      {
+        "paramName": "installationMode",
+        "type": "EQUALS",
+        "paramValue": "standalone"
+      }
+    ]
+  },
+  {
+    "type": "TEXT",
+    "name": "defaultLanguage",
+    "displayName": "Default language",
+    "defaultValue": "en_US",
+    "help": "For example en_US or sv_SE.",
+    "enablingConditions": [
+      {
+        "paramName": "installationMode",
+        "type": "EQUALS",
+        "paramValue": "standalone"
+      }
+    ],
+    "valueValidators": [
+      {
+        "type": "NON_EMPTY"
+      }
+    ]
+  },
+  {
+    "type": "TEXT",
+    "name": "enabledLanguages",
+    "displayName": "Enabled languages",
+    "defaultValue": "en_US",
+    "help": "Comma-separated locales. Built-in: en_US, sv_SE, nb_NO, da_DK, fi, ja, is_IS.",
+    "enablingConditions": [
+      {
+        "paramName": "installationMode",
+        "type": "EQUALS",
+        "paramValue": "standalone"
+      }
+    ],
+    "valueValidators": [
+      {
+        "type": "NON_EMPTY"
+      }
+    ]
+  },
+  {
+    "type": "TEXT",
+    "name": "policyVersion",
+    "displayName": "Policy version",
+    "defaultValue": "1",
+    "help": "Change this when visitors need to choose again after a policy change.",
+    "enablingConditions": [
+      {
+        "paramName": "installationMode",
+        "type": "EQUALS",
+        "paramValue": "standalone"
+      }
+    ],
+    "valueValidators": [
+      {
+        "type": "NON_EMPTY"
+      }
+    ]
+  },
+  {
     "type": "SIMPLE_TABLE",
     "name": "regionDefaults",
     "displayName": "Optional regional consent defaults",
-    "help": "Leave empty for denied optional consent worldwide. Regional rules use ISO 3166-2 codes separated by commas. Configure grants only when appropriate for your consent policy; the WordPress banner still appears globally.",
+    "help": "Leave empty for denied optional consent worldwide. Regional rules use ISO 3166-2 codes separated by commas. Configure grants only when appropriate for your consent policy; the banner still appears globally.",
     "simpleTableColumns": [
       {
         "defaultValue": "",
@@ -159,63 +285,121 @@ const updateConsentState = require('updateConsentState');
 const callInWindow = require('callInWindow');
 const gtagSet = require('gtagSet');
 const templateStorage = require('templateStorage');
+const injectScript = require('injectScript');
 
 if (templateStorage.getItem('subscribed')) {
   data.gtmOnSuccess();
+} else if (templateStorage.getItem('pending')) {
+  templateStorage.getItem('pending').push({ success: data.gtmOnSuccess, failure: data.gtmOnFailure });
 } else {
-  setDefaultConsentState({
-    analytics_storage: 'denied',
-    ad_storage: 'denied',
-    ad_user_data: 'denied',
-    ad_personalization: 'denied',
-    functionality_storage: 'denied',
-    personalization_storage: 'denied',
-    security_storage: 'granted',
-    wait_for_update: 500
-  });
-  gtagSet('developer_id.dNjUxMW', true);
-
-  const config = callInWindow('AcookiesConsent.getConfig');
-  if (!config || config.integration !== 'gtm') {
+  const standalone = data.installationMode === 'standalone';
+  // An explicitly selected loader must still respect an installed WordPress CMP.
+  const existingBridge = standalone ? callInWindow('AcookiesConsent.getConfig') : undefined;
+  if (existingBridge && existingBridge.integration !== 'gtm') {
     data.gtmOnFailure();
   } else {
-    let connected = false;
-    let initialState;
-    const onConsent = (state) => {
-      if (!state) return;
-      // Hold synchronous saved-choice replay until the subscription succeeds
-      // and all defaults have been established.
-      if (!connected) {
-        initialState = state;
-        return;
-      }
-      updateConsentState({
-        analytics_storage: state.analytics_storage === 'granted' ? 'granted' : 'denied',
-        ad_storage: state.ad_storage === 'granted' ? 'granted' : 'denied',
-        ad_user_data: state.ad_user_data === 'granted' ? 'granted' : 'denied',
-        ad_personalization: state.ad_personalization === 'granted' ? 'granted' : 'denied',
-        functionality_storage: state.functionality_storage === 'granted' ? 'granted' : 'denied',
-        personalization_storage: state.personalization_storage === 'granted' ? 'granted' : 'denied',
-        security_storage: 'granted'
+    templateStorage.setItem('pending', [{ success: data.gtmOnSuccess, failure: data.gtmOnFailure }]);
+    let settled = false;
+    const finish = (success) => {
+      if (settled) return;
+      settled = true;
+      const pending = templateStorage.getItem('pending');
+      templateStorage.setItem('pending', false);
+      if (success) templateStorage.setItem('subscribed', true);
+      pending.forEach((callbacks) => {
+        if (success) callbacks.success();
+        else callbacks.failure();
       });
     };
-    if (callInWindow('AcookiesConsent.subscribe', onConsent) === true) {
-      // Apply regional grants only when the bridge has actually connected.
-      (data.regionDefaults || []).forEach((row) => {
-        const regions = (row.region || '').split(',').map((region) => region.trim().toUpperCase()).filter((region) => region !== '');
-        if (regions.length === 0) return;
-        const regional = { region: regions, security_storage: 'granted', wait_for_update: 500 };
-        ['analytics_storage', 'ad_storage', 'ad_user_data', 'ad_personalization', 'functionality_storage', 'personalization_storage'].forEach((type) => {
-          regional[type] = row[type] === 'granted' ? 'granted' : 'denied';
+    setDefaultConsentState({
+      analytics_storage: 'denied',
+      ad_storage: 'denied',
+      ad_user_data: 'denied',
+      ad_personalization: 'denied',
+      functionality_storage: 'denied',
+      personalization_storage: 'denied',
+      security_storage: 'granted',
+      wait_for_update: 500
+    });
+    gtagSet('developer_id.dNjUxMW', true);
+
+    const connect = (config, loadBanner) => {
+      if (!loadBanner && (!config || config.integration !== 'gtm')) {
+        finish(false);
+        return;
+      }
+      let connected = false;
+      let initialState;
+      const onConsent = (state) => {
+        if (!state || (settled && !connected)) return;
+        // Hold synchronous saved-choice replay until the subscription succeeds
+        // and all defaults have been established.
+        if (!connected) {
+          initialState = state;
+          return;
+        }
+        updateConsentState({
+          analytics_storage: state.analytics_storage === 'granted' ? 'granted' : 'denied',
+          ad_storage: state.ad_storage === 'granted' ? 'granted' : 'denied',
+          ad_user_data: state.ad_user_data === 'granted' ? 'granted' : 'denied',
+          ad_personalization: state.ad_personalization === 'granted' ? 'granted' : 'denied',
+          functionality_storage: state.functionality_storage === 'granted' ? 'granted' : 'denied',
+          personalization_storage: state.personalization_storage === 'granted' ? 'granted' : 'denied',
+          security_storage: 'granted'
         });
-        setDefaultConsentState(regional);
-      });
-      connected = true;
-      if (initialState) onConsent(initialState);
-      templateStorage.setItem('subscribed', true);
-      data.gtmOnSuccess();
+      };
+      const ready = () => {
+        if (settled) return;
+        // Apply regional grants only after the bridge/runtime is ready.
+        (data.regionDefaults || []).forEach((row) => {
+          const regions = (row.region || '').split(',').map((region) => region.trim().toUpperCase()).filter((region) => region !== '');
+          if (regions.length === 0) return;
+          const regional = { region: regions, security_storage: 'granted', wait_for_update: 500 };
+          ['analytics_storage', 'ad_storage', 'ad_user_data', 'ad_personalization', 'functionality_storage', 'personalization_storage'].forEach((type) => {
+            regional[type] = row[type] === 'granted' ? 'granted' : 'denied';
+          });
+          setDefaultConsentState(regional);
+        });
+        connected = true;
+        if (initialState) onConsent(initialState);
+        finish(true);
+      };
+      if (loadBanner) {
+        let accepted = false;
+        let isReady = false;
+        const onReady = () => {
+          isReady = true;
+          if (accepted) ready();
+        };
+        const result = callInWindow('AcookiesStatic.initGtm', {
+          siteKey: data.siteKey,
+          privacyUrl: data.privacyUrl,
+          configUrl: data.configUrl || '',
+          defaultLanguage: data.defaultLanguage || 'en_US',
+          enabledLanguages: data.enabledLanguages || 'en_US',
+          policyVersion: data.policyVersion || '1'
+        }, onConsent, onReady, () => finish(false));
+        if (result === true) {
+          accepted = true;
+          if (isReady) ready();
+        } else {
+          finish(false);
+        }
+      } else if (callInWindow('AcookiesConsent.subscribe', onConsent) === true) {
+        ready();
+      } else {
+        finish(false);
+      }
+    };
+    const config = standalone ? existingBridge : callInWindow('AcookiesConsent.getConfig');
+    if (config || !standalone) {
+      connect(config, false);
     } else {
-      data.gtmOnFailure();
+      injectScript('https://acookies.com/runtime/acookies-gtm-v1.js?integration=gtm', () => {
+        // WordPress may have initialized while the asynchronous script was loading.
+        const bridge = callInWindow('AcookiesConsent.getConfig');
+        connect(bridge, !bridge);
+      }, () => finish(false), 'acookies-gtm-v1');
     }
   }
 }
@@ -549,6 +733,45 @@ ___WEB_PERMISSIONS___
                     "boolean": true
                   }
                 ]
+              },
+              {
+                "type": 3,
+                "mapKey": [
+                  {
+                    "type": 1,
+                    "string": "key"
+                  },
+                  {
+                    "type": 1,
+                    "string": "read"
+                  },
+                  {
+                    "type": 1,
+                    "string": "write"
+                  },
+                  {
+                    "type": 1,
+                    "string": "execute"
+                  }
+                ],
+                "mapValue": [
+                  {
+                    "type": 1,
+                    "string": "AcookiesStatic.initGtm"
+                  },
+                  {
+                    "type": 8,
+                    "boolean": false
+                  },
+                  {
+                    "type": 8,
+                    "boolean": false
+                  },
+                  {
+                    "type": 8,
+                    "boolean": true
+                  }
+                ]
               }
             ]
           }
@@ -587,6 +810,29 @@ ___WEB_PERMISSIONS___
         "versionId": "1"
       },
       "param": []
+    },
+    "isRequired": true
+  },
+  {
+    "instance": {
+      "key": {
+        "publicId": "inject_script",
+        "versionId": "1"
+      },
+      "param": [
+        {
+          "key": "urls",
+          "value": {
+            "type": 2,
+            "listItem": [
+              {
+                "type": 1,
+                "string": "https://acookies.com/runtime/acookies-gtm-v1.js?integration=gtm"
+              }
+            ]
+          }
+        }
+      ]
     },
     "isRequired": true
   }
@@ -690,10 +936,58 @@ scenarios:
     mock('callInWindow', (path) => path === 'AcookiesConsent.getConfig' ? {integration: 'gtm', developerId: ''} : true);
     runCode({regionDefaults: [{region: 'us, us-ca', analytics_storage: 'granted'}, {region: ''}]});
     assertApi('setDefaultConsentState').wasCalledWith({region: ['US', 'US-CA'], security_storage: 'granted', wait_for_update: 500, analytics_storage: 'granted', ad_storage: 'denied', ad_user_data: 'denied', ad_personalization: 'denied', functionality_storage: 'denied', personalization_storage: 'denied'});
+- name: WordPress remains the default without script loading
+  code: |-
+    mock('callInWindow', (path) => path === 'AcookiesConsent.getConfig' ? {integration: 'gtm'} : true);
+    runCode({});
+    assertApi('injectScript').wasNotCalled();
+    assertApi('gtmOnSuccess').wasCalled();
+- name: Standalone selection respects a direct WordPress integration
+  code: |-
+    mock('callInWindow', () => ({integration: 'gtag'}));
+    runCode({installationMode: 'standalone'});
+    assertApi('injectScript').wasNotCalled();
+    assertApi('setDefaultConsentState').wasNotCalled();
+    assertApi('updateConsentState').wasNotCalled();
+    assertApi('gtmOnFailure').wasCalled();
+- name: Standalone selection connects an existing WordPress GTM bridge
+  code: |-
+    mock('callInWindow', (path) => path === 'AcookiesConsent.getConfig' ? {integration: 'gtm'} : true);
+    runCode({installationMode: 'standalone'});
+    assertApi('injectScript').wasNotCalled();
+    assertApi('gtmOnSuccess').wasCalled();
+- name: Script failure retains denied defaults without regional grants
+  code: |-
+    mock('callInWindow', () => undefined);
+    mock('injectScript', (url, success, failure) => failure());
+    mock('setDefaultConsentState', (state) => assertThat(state.region).isEqualTo(undefined));
+    runCode({installationMode: 'standalone', regionDefaults: [{region: 'US', analytics_storage: 'granted'}]});
+    assertApi('gtmOnFailure').wasCalled();
+    assertApi('updateConsentState').wasNotCalled();
+- name: Standalone initialization restores choices after readiness
+  code: |-
+    let listener;
+    let ready;
+    mock('callInWindow', (path, config, callback, onReady) => {
+      if (path !== 'AcookiesStatic.initGtm') return undefined;
+      listener = callback;
+      ready = onReady;
+      callback({analytics_storage: 'granted'});
+      return true;
+    });
+    mock('injectScript', (url, success) => success());
+    runCode({installationMode: 'standalone', siteKey: 'demo', privacyUrl: 'https://example.com/cookies'});
+    assertApi('gtmOnSuccess').wasNotCalled();
+    assertApi('updateConsentState').wasNotCalled();
+    ready();
+    assertApi('gtmOnSuccess').wasCalled();
+    assertApi('updateConsentState').wasCalledWith({analytics_storage: 'granted', ad_storage: 'denied', ad_user_data: 'denied', ad_personalization: 'denied', functionality_storage: 'denied', personalization_storage: 'denied', security_storage: 'granted'});
+    listener({});
+    assertApi('updateConsentState').wasCalledWith({analytics_storage: 'denied', ad_storage: 'denied', ad_user_data: 'denied', ad_personalization: 'denied', functionality_storage: 'denied', personalization_storage: 'denied', security_storage: 'granted'});
 
 
 ___NOTES___
 
-WordPress integration only. Embeds ACookies developer ID dNjUxMW; the WordPress plugin loads the banner and bridge.
+WordPress integration by default; optional standalone banner loading through GTM. Embeds ACookies developer ID dNjUxMW. Existing WordPress bridges take precedence over the standalone loader.
 
 

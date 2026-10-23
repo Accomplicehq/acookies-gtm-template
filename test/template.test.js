@@ -14,7 +14,7 @@ function harness() {
   const overrides = new Map();
   const storage = new Map();
   const apis = {
-    setDefaultConsentState() {}, updateConsentState() {}, callInWindow() {}, gtagSet() {},
+    setDefaultConsentState() {}, updateConsentState() {}, callInWindow() {}, gtagSet() {}, injectScript() {},
     templateStorage: { getItem: (key) => storage.get(key), setItem: (key, value) => storage.set(key, value), clear: () => storage.clear() }
   };
   const record = (name, args) => { if (!calls.has(name)) calls.set(name, []); calls.get(name).push(args); };
@@ -49,6 +49,15 @@ for (const block of section('TESTS').split('\n- name: ').slice(1)) {
 test('source and exported sandbox code match', async () => {
   assert.equal(source, (await readFile(new URL('../src/template.js', import.meta.url), 'utf8')).trim());
   assert.equal(section('TESTS'), (await readFile(new URL('./scenarios.yaml', import.meta.url), 'utf8')).trim());
+});
+
+test('standalone fields use the Google export condition schema and WordPress default', () => {
+  const fields = JSON.parse(section('TEMPLATE_PARAMETERS'));
+  assert.equal(fields[0].defaultValue, 'wordpress');
+  for (const field of fields.filter((field) => field.name !== 'installationMode' && field.name !== 'regionDefaults')) {
+    assert.deepEqual(field.enablingConditions, [{ paramName: 'installationMode', type: 'EQUALS', paramValue: 'standalone' }]);
+  }
+  assert.ok(JSON.parse(section('INFO')).description.length <= 200);
 });
 
 test('embedded setup clears a subscription left by an earlier Google sandbox test', () => {
@@ -99,12 +108,13 @@ test('saved consent updates follow regional defaults after connection succeeds',
   assert.equal(h.calls.get('gtmOnSuccess').length, 1);
 });
 
-test('template has no network, script-loading, cookie or general global permissions', () => {
+test('script loading is limited to the ACookies runtime with narrowly scoped globals', () => {
   const permissions = JSON.parse(section('WEB_PERMISSIONS'));
-  assert.deepEqual(permissions.map((entry) => entry.instance.key.publicId), ['access_consent', 'access_globals', 'write_data_layer', 'access_template_storage']);
+  assert.deepEqual(permissions.map((entry) => entry.instance.key.publicId), ['access_consent', 'access_globals', 'write_data_layer', 'access_template_storage', 'inject_script']);
   const globals = permissions[1].instance.param[0].value.listItem.map((item) => item.mapValue[0].string);
-  assert.deepEqual(globals, ['AcookiesConsent.getConfig', 'AcookiesConsent.subscribe']);
-  assert.doesNotMatch(source, /gtag\(['"]consent|injectScript|sendPixel/);
+  assert.deepEqual(globals, ['AcookiesConsent.getConfig', 'AcookiesConsent.subscribe', 'AcookiesStatic.initGtm']);
+  assert.deepEqual(permissions[4].instance.param, [{ key: 'urls', value: { type: 2, listItem: [{ type: 1, string: 'https://acookies.com/runtime/acookies-gtm-v1.js?integration=gtm' }] } }]);
+  assert.doesNotMatch(source, /gtag\(['"]consent|sendPixel/);
 });
 
 test('export grants native storage and developer identification using GTM permission keys', () => {

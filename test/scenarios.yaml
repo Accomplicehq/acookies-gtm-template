@@ -93,3 +93,51 @@ scenarios:
     mock('callInWindow', (path) => path === 'AcookiesConsent.getConfig' ? {integration: 'gtm', developerId: ''} : true);
     runCode({regionDefaults: [{region: 'us, us-ca', analytics_storage: 'granted'}, {region: ''}]});
     assertApi('setDefaultConsentState').wasCalledWith({region: ['US', 'US-CA'], security_storage: 'granted', wait_for_update: 500, analytics_storage: 'granted', ad_storage: 'denied', ad_user_data: 'denied', ad_personalization: 'denied', functionality_storage: 'denied', personalization_storage: 'denied'});
+- name: WordPress remains the default without script loading
+  code: |-
+    mock('callInWindow', (path) => path === 'AcookiesConsent.getConfig' ? {integration: 'gtm'} : true);
+    runCode({});
+    assertApi('injectScript').wasNotCalled();
+    assertApi('gtmOnSuccess').wasCalled();
+- name: Standalone selection respects a direct WordPress integration
+  code: |-
+    mock('callInWindow', () => ({integration: 'gtag'}));
+    runCode({installationMode: 'standalone'});
+    assertApi('injectScript').wasNotCalled();
+    assertApi('setDefaultConsentState').wasNotCalled();
+    assertApi('updateConsentState').wasNotCalled();
+    assertApi('gtmOnFailure').wasCalled();
+- name: Standalone selection connects an existing WordPress GTM bridge
+  code: |-
+    mock('callInWindow', (path) => path === 'AcookiesConsent.getConfig' ? {integration: 'gtm'} : true);
+    runCode({installationMode: 'standalone'});
+    assertApi('injectScript').wasNotCalled();
+    assertApi('gtmOnSuccess').wasCalled();
+- name: Script failure retains denied defaults without regional grants
+  code: |-
+    mock('callInWindow', () => undefined);
+    mock('injectScript', (url, success, failure) => failure());
+    mock('setDefaultConsentState', (state) => assertThat(state.region).isEqualTo(undefined));
+    runCode({installationMode: 'standalone', regionDefaults: [{region: 'US', analytics_storage: 'granted'}]});
+    assertApi('gtmOnFailure').wasCalled();
+    assertApi('updateConsentState').wasNotCalled();
+- name: Standalone initialization restores choices after readiness
+  code: |-
+    let listener;
+    let ready;
+    mock('callInWindow', (path, config, callback, onReady) => {
+      if (path !== 'AcookiesStatic.initGtm') return undefined;
+      listener = callback;
+      ready = onReady;
+      callback({analytics_storage: 'granted'});
+      return true;
+    });
+    mock('injectScript', (url, success) => success());
+    runCode({installationMode: 'standalone', siteKey: 'demo', privacyUrl: 'https://example.com/cookies'});
+    assertApi('gtmOnSuccess').wasNotCalled();
+    assertApi('updateConsentState').wasNotCalled();
+    ready();
+    assertApi('gtmOnSuccess').wasCalled();
+    assertApi('updateConsentState').wasCalledWith({analytics_storage: 'granted', ad_storage: 'denied', ad_user_data: 'denied', ad_personalization: 'denied', functionality_storage: 'denied', personalization_storage: 'denied', security_storage: 'granted'});
+    listener({});
+    assertApi('updateConsentState').wasCalledWith({analytics_storage: 'denied', ad_storage: 'denied', ad_user_data: 'denied', ad_personalization: 'denied', functionality_storage: 'denied', personalization_storage: 'denied', security_storage: 'granted'});

@@ -3,7 +3,7 @@
   "id": "cvt_temp_public_id",
   "version": 1,
   "displayName": "ACookies Consent Mode",
-  "description": "Connects the ACookies WordPress banner to Google consent settings. Requires ACookies 1.1.1+ in native GTM mode. Guide: https://acookies.com/wordpress-google-consent-setup; support@acookies.com.",
+  "description": "Native Google consent APIs for ACookies. WordPress by default; optional standalone banner through GTM. Setup: https://github.com/Accomplicehq/acookies-gtm-template; support@acookies.com.",
   "categories": [
     "TAG_MANAGEMENT",
     "UTILITY"
