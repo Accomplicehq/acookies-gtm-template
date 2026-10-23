@@ -1,6 +1,8 @@
 homepage: "https://acookies.com/"
-documentation: "https://acookies.com/wordpress-google-consent-setup"
+documentation: "https://github.com/Accomplicehq/acookies-gtm-template"
 versions:
+  - sha: ced52a5695dc8a9e915959ae32ea694eb29d9dbf
+    changeNotes: Add opt-in standalone banner loading through injectScript, retaining WordPress as the default and honoring existing plugin bridges. Native consent updates, saved choices, withdrawal and loader failures are covered by 13 Google sandbox scenarios.
   - sha: 4c06cc3d2bc0dab4d717d76d5fcedd53fe741c7e
     changeNotes: Embed the issued developer ID dNjUxMW directly before bridge access and restrict writes to that ID; eight Google sandbox scenarios passed. WordPress integration only; reviews pending.
   - sha: 4876c527eb5a65d38f102c04c825f272c273c3ac
