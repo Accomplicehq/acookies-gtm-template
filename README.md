@@ -6,7 +6,15 @@ can instead install the banner on a website without the WordPress plugin.
 The template remains under Community Template Gallery review. Publication of this
 source does not establish Google CMP partner admission or Gallery approval.
 
-Version **1.1.0**, published on 2026-10-23, adds the optional standalone loader.
+Version **1.1.1** applies configured regional defaults during Consent Initialization,
+before requesting the standalone banner script. The worldwide fallback denies
+all optional consent. If the loader fails, the tag restores optional denial for
+any prior regional grants it applied.
+All 13 embedded scenarios passed in Google's editor. Tag Assistant verified
+the effective regional rule and worldwide fallback before measurement while
+the standalone banner was waiting for configuration.
+
+Version **1.1.0**, published on 2026-10-23, added the optional standalone loader.
 All 13 embedded scenarios passed in Google's actual template sandbox; the
 combined product checks include 266 automated tests. The runtime is hosted on
 acookies.com. Try the [standalone review page](https://acookies.com/runtime/gtm-demo).
@@ -81,18 +89,19 @@ Example optional configuration JSON:
 }
 ```
 
-The tag sets denied defaults and the issued developer ID synchronously, then uses
+The tag sets the worldwide denied default, registers the issued developer ID and
+sets all configured regional defaults during Consent Initialization. It then uses
 `injectScript` to load only
 `https://acookies.com/runtime/acookies-gtm-v1.js?integration=gtm`. The runtime
 waits for the document/configuration, restores a valid saved choice and passes
 changes back to the template's native `updateConsentState` API. It never queues
-`gtag('consent', ...)` commands in GTM mode. Regional defaults are applied only
-after successful initialization, before saved choices override them.
+`gtag('consent', ...)` commands in GTM mode. A valid saved choice overrides the
+defaults when the runtime is ready.
 
 The banner includes cookie-policy and Google data-use links and a persistent
 preferences button for changing or withdrawing consent. Choices use standalone
-storage keys, separate from WordPress. A configuration fetch/script error or
-invalid configuration fails initialization and retains denied optional defaults.
+storage keys, separate from WordPress. A configuration or script failure reports
+initialization failure and restores optional denial if any regional row granted it.
 
 **WordPress takes precedence:** even if standalone mode is selected, an existing
 native WordPress bridge is used without downloading a second banner. A direct
@@ -114,10 +123,11 @@ checks the optional loader and WordPress precedence.
 Defaults deny optional consent worldwide and grant `security_storage`. Optional
 regional rows use comma-separated ISO 3166-2 codes and GTM's more-specific-region
 precedence. The WordPress banner still appears worldwide. User choices override
-defaults. Regional grants must match the site's consent policy.
-Regional grants are applied only after the WordPress bridge successfully
-subscribes or the standalone runtime is ready; saved choices then override the
-complete set of defaults.
+defaults. Regional grants must match the site's consent policy. A regional grant
+can take effect before the standalone banner appears. Leave the table empty to
+deny optional consent everywhere until the visitor makes or restores a choice.
+In WordPress mode, the template applies the table during the same trigger after
+the native bridge successfully subscribes.
 
 The template embeds ACookies' Google-issued ID, `dNjUxMW`, and registers it
 immediately after denied defaults, before reading the WordPress bridge. It

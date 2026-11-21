@@ -43,7 +43,7 @@ const parameters = [
   })),
   {
     type: 'SIMPLE_TABLE', name: 'regionDefaults', displayName: 'Optional regional consent defaults',
-    help: 'Leave empty for denied optional consent worldwide. Regional rules use ISO 3166-2 codes separated by commas. Configure grants only when appropriate for your consent policy; the banner still appears globally.',
+    help: 'Leave empty to deny optional consent worldwide. Enter comma-separated ISO 3166-2 codes. Regional grants apply at Consent Initialization, before the standalone banner loads. Use grants where your consent policy permits them.',
     simpleTableColumns: [
       { defaultValue: '', displayName: 'Regions (e.g. US, US-CA)', name: 'region', type: 'TEXT', isUnique: true, valueValidators: [{ type: 'NON_EMPTY' }] },
       ...consentTypes.filter((type) => type !== 'security_storage').map((type) => ({
@@ -59,7 +59,8 @@ const sections = [
   ['INFO', JSON.stringify(info, null, 2)],
   ['TEMPLATE_PARAMETERS', JSON.stringify(parameters, null, 2)],
   ['SANDBOXED_JS_FOR_WEB_TEMPLATE', code.trim()],
-  ['WEB_PERMISSIONS', JSON.stringify(permissions, null, 2)],
+  // GTM's export escapes the equals sign in the permitted script URL.
+  ['WEB_PERMISSIONS', JSON.stringify(permissions, null, 2).replaceAll('=', '\\u003d')],
   ['TESTS', scenarios.trim()],
   ['NOTES', 'WordPress integration by default; optional standalone banner loading through GTM. Embeds ACookies developer ID dNjUxMW. Existing WordPress bridges take precedence over the standalone loader.']
 ];

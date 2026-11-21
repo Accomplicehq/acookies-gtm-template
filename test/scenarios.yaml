@@ -92,7 +92,7 @@ scenarios:
   code: |-
     mock('callInWindow', (path) => path === 'AcookiesConsent.getConfig' ? {integration: 'gtm', developerId: ''} : true);
     runCode({regionDefaults: [{region: 'us, us-ca', analytics_storage: 'granted'}, {region: ''}]});
-    assertApi('setDefaultConsentState').wasCalledWith({region: ['US', 'US-CA'], security_storage: 'granted', wait_for_update: 500, analytics_storage: 'granted', ad_storage: 'denied', ad_user_data: 'denied', ad_personalization: 'denied', functionality_storage: 'denied', personalization_storage: 'denied'});
+    assertApi('setDefaultConsentState').wasCalledWith({analytics_storage: 'granted', ad_storage: 'denied', ad_user_data: 'denied', ad_personalization: 'denied', functionality_storage: 'denied', personalization_storage: 'denied', security_storage: 'granted', region: ['US', 'US-CA'], wait_for_update: 500});
 - name: WordPress remains the default without script loading
   code: |-
     mock('callInWindow', (path) => path === 'AcookiesConsent.getConfig' ? {integration: 'gtm'} : true);
@@ -113,18 +113,31 @@ scenarios:
     runCode({installationMode: 'standalone'});
     assertApi('injectScript').wasNotCalled();
     assertApi('gtmOnSuccess').wasCalled();
-- name: Script failure retains denied defaults without regional grants
+- name: Script failure restores denial after an explicit regional grant
   code: |-
     mock('callInWindow', () => undefined);
     mock('injectScript', (url, success, failure) => failure());
-    mock('setDefaultConsentState', (state) => assertThat(state.region).isEqualTo(undefined));
     runCode({installationMode: 'standalone', regionDefaults: [{region: 'US', analytics_storage: 'granted'}]});
     assertApi('gtmOnFailure').wasCalled();
-    assertApi('updateConsentState').wasNotCalled();
-- name: Standalone initialization restores choices after readiness
+    assertApi('updateConsentState').wasCalledWith({analytics_storage: 'denied', ad_storage: 'denied', ad_user_data: 'denied', ad_personalization: 'denied', functionality_storage: 'denied', personalization_storage: 'denied', security_storage: 'granted'});
+- name: Standalone defaults precede both loader callbacks and choice replay
   code: |-
+    let loadScript;
     let listener;
     let ready;
+    let defaultCount = 0;
+    mock('setDefaultConsentState', (state) => {
+      defaultCount++;
+      if (defaultCount === 1) {
+        assertThat(state.region).isEqualTo(undefined);
+        assertThat(state.analytics_storage).isEqualTo('denied');
+      } else {
+        assertThat(state.region).isEqualTo(['US']);
+        assertThat(state.analytics_storage).isEqualTo('granted');
+        assertThat(state.ad_user_data).isEqualTo('denied');
+        assertThat(state.wait_for_update).isEqualTo(500);
+      }
+    });
     mock('callInWindow', (path, config, callback, onReady) => {
       if (path !== 'AcookiesStatic.initGtm') return undefined;
       listener = callback;
@@ -132,11 +145,18 @@ scenarios:
       callback({analytics_storage: 'granted'});
       return true;
     });
-    mock('injectScript', (url, success) => success());
-    runCode({installationMode: 'standalone', siteKey: 'demo', privacyUrl: 'https://example.com/cookies'});
+    mock('injectScript', (url, success) => {
+      assertThat(defaultCount).isEqualTo(2);
+      loadScript = success;
+    });
+    runCode({installationMode: 'standalone', siteKey: 'demo', privacyUrl: 'https://example.com/cookies', regionDefaults: [{region: 'us', analytics_storage: 'granted'}]});
+    assertThat(defaultCount).isEqualTo(2);
+    assertApi('updateConsentState').wasNotCalled();
+    loadScript();
     assertApi('gtmOnSuccess').wasNotCalled();
     assertApi('updateConsentState').wasNotCalled();
     ready();
+    assertThat(defaultCount).isEqualTo(2);
     assertApi('gtmOnSuccess').wasCalled();
     assertApi('updateConsentState').wasCalledWith({analytics_storage: 'granted', ad_storage: 'denied', ad_user_data: 'denied', ad_personalization: 'denied', functionality_storage: 'denied', personalization_storage: 'denied', security_storage: 'granted'});
     listener({});
